@@ -6,6 +6,7 @@ import './App.css';
  */
 
 import SampleText from './components/SampleText/SampleText';
+import ColorPicker from './components/ColorPicker/ColorPicker';
 import wordRegex from './utils/utils';
 
 /**
@@ -23,7 +24,10 @@ interface SelectedColors {
 }
 
 interface SelectedTextGroup {
-  [key: string]: string[];
+  [key: string]: {
+    color: string;
+    selected: string[];
+  };
 }
 
 // interface SelectedState {
@@ -36,6 +40,7 @@ interface SelectedTextGroup {
 
 const App: React.FC = () => {
   const [mouseIsClicked, setMouseIsClicked] = useState<boolean>();
+  const [currentColor, setCurrentColor] = useState<string>('');
   const [selectGroup, setSelectGroup] = useState<number>(0);
   const [selectedTextGroups, setSelectedTextGroups] = useState<SelectedTextGroup>({});
   // const [selectedText, setSelectedText] = useState<string[]>([]);
@@ -49,7 +54,19 @@ const App: React.FC = () => {
    * @param txt - string to check for
    */
   const checkIfHighlighted = (txt: string) => {
-    return Object.values(selectedTextGroups).filter((group) => group.includes(txt)).length > 0;
+    return (
+      Object.values(selectedTextGroups).filter((group) => group['selected'].includes(txt)).length >
+      0
+    );
+  };
+
+  const getHighlightColor = (mappedWordID: string) => {
+    return Object.values(selectedTextGroups).filter((group) => {
+      if (group['selected'].includes(mappedWordID)) {
+        return group['color'];
+      }
+    })[0]['color'];
+
   };
 
   const checkIfColorInState = (color: HighlightColor) => {};
@@ -85,7 +102,7 @@ const App: React.FC = () => {
 
     e.preventDefault();
 
-    if (mouseIsClicked) {
+    if (mouseIsClicked && currentColor !== '') {
       if (targetID.match(/mappedWord/) !== null) {
         /**
          * 1. Below a check should be done to see if there is an empty group by the same name
@@ -94,12 +111,18 @@ const App: React.FC = () => {
         if (selectGroupExists(`group${selectGroup}`)) {
           setSelectedTextGroups({
             ...selectedTextGroups,
-            [`group${selectGroup}`]: [...selectedTextGroups[`group${selectGroup}`], targetID],
+            [`group${selectGroup}`]: {
+              color: currentColor,
+              selected: [...selectedTextGroups[`group${selectGroup}`]['selected'], targetID],
+            },
           });
         } else {
           setSelectedTextGroups({
             ...selectedTextGroups,
-            [`group${selectGroup}`]: [targetID],
+            [`group${selectGroup}`]: {
+              color: currentColor,
+              selected: [targetID],
+            },
           });
         }
       }
@@ -148,7 +171,9 @@ const App: React.FC = () => {
               data-selected-group=''
               className={`additionalClass 
                 ${
-                  checkIfHighlighted(`mappedWord${i}`) ? `selected--${HighlightColor.Orange}` : ''
+                  checkIfHighlighted(`mappedWord${i}`)
+                    ? `selected--${getHighlightColor(`mappedWord${i}`)}`
+                    : ''
                 }`}>{`${mappedWord}`}</span>
           );
         } else {
@@ -156,6 +181,29 @@ const App: React.FC = () => {
         }
       });
   };
+
+  /**
+   * Color functionality
+   */
+
+  const handleColorChange = (e: React.MouseEvent<HTMLElement>) => {
+    const t = e.target as HTMLElement;
+    if (currentColor !== t.id) {
+      if (t.id === 'orange') {
+        setCurrentColor(HighlightColor.Orange);
+      }
+      if (t.id === 'green') {
+        setCurrentColor(HighlightColor.Green);
+      }
+      if (t.id === 'red') {
+        setCurrentColor(HighlightColor.Red);
+      }
+    }
+  };
+
+  /**
+   * Lifecycle functionality etc.
+   */
 
   useEffect(() => {
     mapStrToSpan(SampleText);
@@ -178,6 +226,7 @@ const App: React.FC = () => {
           msUserSelect: 'none',
         }}>
         {mapStrToSpan(SampleText)}
+        <ColorPicker func={handleColorChange} />
       </main>
     </div>
   );
