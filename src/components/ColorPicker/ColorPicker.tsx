@@ -18,6 +18,9 @@ const ColorPicker: React.FC<ColorPickProps> = (cpPrps: ColorPickProps) => {
       <span onClick={cpPrps.func} id='red'>
         Red
       </span>
+      <span onClick={cpPrps.func} id='erase'>
+        Erase
+      </span>
     </p>
   );
 };

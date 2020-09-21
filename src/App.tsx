@@ -17,11 +17,12 @@ enum HighlightColor {
   Green = 'green',
   Orange = 'orange',
   Red = 'red',
+  Erase = 'erase',
 }
 
-interface SelectedColors {
-  HighlightColor: string[];
-}
+// interface SelectedColors {
+//   HighlightColor: string[];
+// }
 
 interface SelectedTextGroup {
   [key: string]: {
@@ -29,10 +30,6 @@ interface SelectedTextGroup {
     selected: string[];
   };
 }
-
-// interface SelectedState {
-//   selected: { [key: HighlightColor]: string[];}
-// }
 
 /**
  * app
@@ -43,20 +40,42 @@ const App: React.FC = () => {
   const [currentColor, setCurrentColor] = useState<string>('');
   const [selectGroup, setSelectGroup] = useState<number>(0);
   const [selectedTextGroups, setSelectedTextGroups] = useState<SelectedTextGroup>({});
-  // const [selectedText, setSelectedText] = useState<string[]>([]);
-
-  // const checkIfTextInState = (txt: string) => {
-  //   return selectedText.includes(txt);
-  // };
 
   /**
    * Function to check if selected textID is already somewhere in the selectedTextGroups state
-   * @param txt - string to check for
+   * @param mappedWordID - string to check for
    */
-  const checkIfHighlighted = (txt: string) => {
+  const checkIfHighlighted = (mappedWordID: string) => {
     return (
-      Object.values(selectedTextGroups).filter((group) => group['selected'].includes(txt)).length >
-      0
+      Object.values(selectedTextGroups).filter((group) => group['selected'].includes(mappedWordID))
+        .length > 0
+    );
+  };
+
+  /**
+   * Function that returns true | false if select-group for current
+   * text selection exists in the state
+   * @param groupName - name of select group to check
+   */
+  const checkIfSelectGroupExists = (groupName: string) => {
+    if (typeof selectedTextGroups[groupName] === 'undefined') {
+      return false;
+    } else {
+      return true;
+    }
+  };
+
+  const getSelectGroupName = (mappedWordID: string) => {
+    return Object.keys(selectedTextGroups).filter((groupKey) => {
+      if (selectedTextGroups[groupKey]['selected'].includes(mappedWordID)) {
+        return selectedTextGroups[groupKey];
+      }
+    });
+  };
+
+  const getArrayWithMappedWord = (mappedWordID: string) => {
+    return Object.values(selectedTextGroups).filter((group) =>
+      group['selected'].includes(mappedWordID)
     );
   };
 
@@ -66,22 +85,10 @@ const App: React.FC = () => {
         return group['color'];
       }
     })[0]['color'];
-
   };
 
-  const checkIfColorInState = (color: HighlightColor) => {};
-
-  /**
-   * Function that returns true | false if select-group for current
-   * text selection exists in the state
-   * @param groupName - name of select group to check
-   */
-  const selectGroupExists = (groupName: string) => {
-    if (typeof selectedTextGroups[groupName] === 'undefined') {
-      return false;
-    } else {
-      return true;
-    }
+  const eraseMappedWord = (filterAbleArray: string[]) => (mappedWordID: string) => {
+    return filterAbleArray.filter((word) => word !== mappedWordID);
   };
 
   /**
@@ -98,32 +105,52 @@ const App: React.FC = () => {
    */
   const handleSelectText = (e: React.MouseEvent) => {
     const t = e.currentTarget as HTMLElement;
-    const targetID = t.id || '';
+    const targetWordID = t.id || '';
 
     e.preventDefault();
 
     if (mouseIsClicked && currentColor !== '') {
-      if (targetID.match(/mappedWord/) !== null) {
-        /**
-         * 1. Below a check should be done to see if there is an empty group by the same name
-         * 2. If there is, append to it
-         */
-        if (selectGroupExists(`group${selectGroup}`)) {
-          setSelectedTextGroups({
-            ...selectedTextGroups,
-            [`group${selectGroup}`]: {
-              color: currentColor,
-              selected: [...selectedTextGroups[`group${selectGroup}`]['selected'], targetID],
-            },
-          });
+      if (targetWordID.match(/mappedWord/) !== null) {
+        if (currentColor !== HighlightColor.Erase) {
+          /**
+           * 1. Below a check should be done to see if there is an empty group by the same name
+           * 2. If there is, append to it
+           */
+          if (checkIfSelectGroupExists(`group${selectGroup}`)) {
+            setSelectedTextGroups({
+              ...selectedTextGroups,
+              [`group${selectGroup}`]: {
+                color: currentColor,
+                selected: [...selectedTextGroups[`group${selectGroup}`]['selected'], targetWordID],
+              },
+            });
+          } else {
+            setSelectedTextGroups({
+              ...selectedTextGroups,
+              [`group${selectGroup}`]: {
+                color: currentColor,
+                selected: [targetWordID],
+              },
+            });
+          }
         } else {
-          setSelectedTextGroups({
-            ...selectedTextGroups,
-            [`group${selectGroup}`]: {
-              color: currentColor,
-              selected: [targetID],
-            },
-          });
+          /**
+           * 1. else = if color is 'Erase'
+           * 2. check array of selected colors for target mappedword
+           * 3. remove said mappedword id/whatever from array of selected colors
+           * 4. set the selectedText group to that without the text from 'selected', and keep the 'color' as it already is
+           */
+          if (getArrayWithMappedWord(targetWordID).length > 0) {
+            setSelectedTextGroups({
+              ...selectedTextGroups,
+              [getSelectGroupName(targetWordID)[0]]: {
+                color: selectedTextGroups[getSelectGroupName(targetWordID)[0]]['color'],
+                selected: eraseMappedWord([
+                  ...selectedTextGroups[getSelectGroupName(targetWordID)[0]]['selected'],
+                ])(targetWordID),
+              },
+            });
+          }
         }
       }
     }
@@ -134,7 +161,7 @@ const App: React.FC = () => {
       setMouseIsClicked(false);
     }
 
-    if (selectGroupExists(`group${selectGroup}`)) {
+    if (checkIfSelectGroupExists(`group${selectGroup}`)) {
       setSelectGroup(selectGroup + 1);
     }
   };
@@ -142,6 +169,28 @@ const App: React.FC = () => {
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!mouseIsClicked) {
       setMouseIsClicked(true);
+    }
+  };
+
+  /**
+   * Color functionality
+   */
+
+  const handleColorChange = (e: React.MouseEvent<HTMLElement>) => {
+    const t = e.target as HTMLElement;
+    if (currentColor !== t.id) {
+      if (t.id === 'orange') {
+        setCurrentColor(HighlightColor.Orange);
+      }
+      if (t.id === 'green') {
+        setCurrentColor(HighlightColor.Green);
+      }
+      if (t.id === 'red') {
+        setCurrentColor(HighlightColor.Red);
+      }
+      if (t.id === 'erase') {
+        setCurrentColor(HighlightColor.Erase);
+      }
     }
   };
 
@@ -180,25 +229,6 @@ const App: React.FC = () => {
           return mappedWord;
         }
       });
-  };
-
-  /**
-   * Color functionality
-   */
-
-  const handleColorChange = (e: React.MouseEvent<HTMLElement>) => {
-    const t = e.target as HTMLElement;
-    if (currentColor !== t.id) {
-      if (t.id === 'orange') {
-        setCurrentColor(HighlightColor.Orange);
-      }
-      if (t.id === 'green') {
-        setCurrentColor(HighlightColor.Green);
-      }
-      if (t.id === 'red') {
-        setCurrentColor(HighlightColor.Red);
-      }
-    }
   };
 
   /**
